@@ -29,5 +29,6 @@ add_subdirectory(src)
 add_subdirectory(app)
 
 if(BUILD_TESTING)
+    enable_testing()
     add_subdirectory(tests)
 endif()
