@@ -16,7 +16,7 @@ static bool is_alpha(char c){
 }
 
 static bool is_digit(char c){
-    return c >= '0' && c <= 9;
+    return c >= '0' && c <= '9';
 }
 
 static bool is_hex(char c){
@@ -160,13 +160,13 @@ static Token identifier(Scanner* scanner){
 }
 
 static Token number(Scanner* scanner){
-    while (is_digit(peek(scanner)))
+    while (is_digit(peek(scanner)) || peek(scanner) == '_')
     {
         advance(scanner);
     }
-    if(peek(scanner) == '.' && is_digit(peek_next(scanner))){
+    if(peek(scanner) == '.' && (is_digit(peek_next(scanner)))){
         advance(scanner);
-        while (is_digit(peek(scanner)))
+        while (is_digit(peek(scanner)) || peek(scanner) == '_')
         {
             advance(scanner);
         }
@@ -188,9 +188,7 @@ static Token hex_number(Scanner* scanner){
             advance(scanner);
         }
         return create_token(scanner,TOKEN_NUM);
-    }
-
-    return number(scanner);
+    }else return number(scanner);
 }
 
 static Token string(Scanner* scanner, char string_token){
