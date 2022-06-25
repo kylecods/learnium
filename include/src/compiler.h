@@ -3,8 +3,9 @@
 
 #include <stdbool.h>
 
-#include "scanner.h"
 #include "object.h"
+#include "value.h"
+
 
 typedef enum{
   PREC_NONE,
@@ -27,6 +28,8 @@ typedef enum{
 
 typedef struct
 {
+    LnVM* vm;
+    ObjModule* module;
     Scanner scanner;
     Token current;
     Token previous;
@@ -46,8 +49,8 @@ typedef struct{
     bool is_captured;
 }Local;
 
-typedef struct{
-    struct ClassCompiler* enclosing;
+typedef struct sClassCompiler {
+    struct sClassCompiler* enclosing;
     Token name;
     bool has_super_class;
 }ClassCompiler;
@@ -59,7 +62,7 @@ typedef enum{
     TYPE_SCRIPT
 }FunctionType;
 
-typedef struct{
+typedef struct Loop{
     struct Loop* enclosing;
     int start;
     int body;
@@ -68,8 +71,8 @@ typedef struct{
 }Loop;
 
 
-typedef struct {
-    struct Compiler* enclosing;    
+typedef struct sCompiler {
+    struct sCompiler* enclosing;
     Parser* parser;
     FunctionType type;
     Local locals[UINT8_COUNT];
@@ -91,8 +94,5 @@ typedef struct{
     ParseInfixFn infix;
     Precedence precedence;
 }ParserRule;
-
-
-
 
 #endif
