@@ -183,12 +183,107 @@ bool map_delete(LnVM* vm, ObjMap* map, Value key){
     return true;
 }
 
-static char* value_to_string(Value value){
-    //TODO:print values
-    return "TODO";
+char* value_to_string(Value value){
+    if(IS_BOOL(value)){
+        char *str = AS_BOOL(value) ? "true" : false;
+        char* bool_string = malloc(sizeof(char) * (strlen(str) + 1));
+        snprintf(bool_string, strlen(str) + 1, "%s", str);
+        return bool_string;
+
+    }else if(IS_NIL(value)){
+        char* nil_string = malloc(sizeof(char) * 4);
+        snprintf(nil_string, 4, "%s", "null");
+        return nil_string;
+    }else if(IS_NUMBER(value)){
+        double number = AS_NUMBER(value);
+        int number_string_length = snprintf(NULL,0,"%.15g",number) + 1;
+        char* number_string = malloc(sizeof(char) * number_string_length);
+        snprintf(number_string,number_string_length,"%.15g", number);
+        return number_string;
+    }else if(IS_OBJ(value)){
+
+    }
+    char * unknown = malloc(sizeof(char) * 8);
+
+    snprintf(unknown,8,"%s","unknown");
+    return unknown;
 }
 
+char* value_type_to_string(LnVM* vm, Value value,int* length){
+#define CONVERT(type_string, size) \
+    do{                            \
+        char* string = ALLOCATE(vm,char,size + 1); \
+        memcpy(string, #type_string, size) ;      \
+        string[size] = '\0';       \
+        *length = size;            \
+        return string;\
+    }while(false)
+
+#define CONVERT_VARIABLE(type_string,size) \
+    do{                                    \
+        char* string = ALLOCATE(vm,char, size+1); \
+        memcpy(string,type_string, size);  \
+        string[size] = '\0';               \
+        *length = size;                    \
+        return string;\
+    }while(false)
+
+    if (IS_BOOL(value)){
+        CONVERT(bool,4);
+    } else if(IS_NIL(value)){
+        CONVERT(null,4);
+    } else if(IS_NUMBER(value)){
+        CONVERT(number,6);
+    } else if(IS_OBJ(value)){
+        switch (AS_OBJ(value)->type) {
+            case OBJ_CLASS:{
+                CONVERT(class,5);
+            }
+            case OBJ_ENUM: {
+                CONVERT(enum, 4);
+            }
+            case OBJ_MODULE:{
+                CONVERT(module,6);
+            }
+            case OBJ_INSTANCE:{
+                ObjString* class_name = AS_INSTANCE(value)->klass->name;
+                CONVERT_VARIABLE(class_name->chars,class_name->length);
+            }
+            case OBJ_BOUND_METHOD:{
+                CONVERT(method,6);
+            }
+            case OBJ_CLOSURE:
+            case OBJ_FUNCTION:{
+                CONVERT(func, 4);
+            }
+            case OBJ_LIST:{
+                CONVERT(list, 4);
+            }
+            case OBJ_STRING:{
+                CONVERT(string, 6);
+            }
+            case OBJ_MAP:{
+                CONVERT(map, 3);
+            }
+            case OBJ_FILE:
+                CONVERT(file,4);
+            case OBJ_NATIVE:
+                CONVERT(native,6);
+            default:
+                break;
+        }
+    }
+    CONVERT(unknown, 7);
+#undef CONVERT
+#undef CONVERT_VARIABLE
+
+}
 void print_value(Value value){
+    char *output = value_to_string(value);
+    printf("%s", output);
+    free(output);
+}
+void print_value_error(Value value){
     char *output = value_to_string(value);
     fprintf(stderr, "%s", output);
     free(output);

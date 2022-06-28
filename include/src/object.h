@@ -13,13 +13,13 @@
 #define AS_LIST(value)  ((ObjList*)AS_OBJ(value))
 #define AS_MAP(value)  ((ObjMap*)AS_OBJ(value))
 #define AS_STRING(value)  ((ObjString*)AS_OBJ(value))
-#define AS_CSTRING(value) ((ObjString*)AS_OBJ(value)->chars)
+#define AS_CSTRING(value) (((ObjString*)AS_OBJ(value))->chars)
 #define AS_BOUND_METHOD(value) ((ObjBoundMethod*)AS_OBJ(value))
 #define AS_CLASS(value) ((ObjClass*)AS_OBJ(value))
 #define AS_ENUM(value) ((ObjEnum*)AS_OBJ(value))
 #define AS_CLOSURE(value) ((ObjClosure*)AS_OBJ(value))
 #define AS_INSTANCE(value) ((ObjInstance*)AS_OBJ(value))
-#define AS_NATIVE(value) ((ObjNative*)AS_OBJ(value))
+#define AS_NATIVE(value) (((ObjNative*)AS_OBJ(value))->function)
 #define AS_FILE(value) ((ObjFile*)AS_OBJ(value))
 
 #define IS_LIST(value)  is_obj_type(value,OBJ_LIST)
@@ -179,6 +179,12 @@ ObjMap* new_map(LnVM* vm);
 ObjFile* new_file(LnVM* vm);
 
 ObjUpvalue* new_upvalue(LnVM* vm, Value* slot);
+
+char* list_to_string(Value value);
+
+char* map_to_string(Value value);
+
+char* object_to_string(Value value);
 
 static inline bool is_obj_type(Value value, ObjType type){
     return IS_OBJ(value) && AS_OBJ(value)->type == type;

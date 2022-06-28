@@ -95,4 +95,5 @@ typedef struct{
     Precedence precedence;
 }ParserRule;
 
+ObjFun* compile(LnVM* vm, ObjModule* module, const char* source);
 #endif

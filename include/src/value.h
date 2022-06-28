@@ -85,6 +85,10 @@ bool map_get(ObjMap* map, Value key,Value* value);
 
 bool map_delete(LnVM* vm, ObjMap* map, Value key);
 
+char* value_to_string(Value value);
+
+char* value_type_to_string(LnVM* vm, Value value,int* length);
+
 void print_value(Value value);
 
 #endif

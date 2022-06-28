@@ -39,7 +39,19 @@ struct vm {
     int gray_count;
     int gray_capacity;
     Obj **gray_stack;
+    int argc;
+    char** argv;
 };
+
+void push(LnVM* vm, Value value);
+
+Value peek(LnVM* vm, int distance);
+
+void runtime_error(LnVM* vm, const char* format, ...);
+
+Value pop(LnVM* vm);
+
+ObjClosure* compile_module_to_closure(LnVM* vm, char* name, char* source);
 
 
 #endif

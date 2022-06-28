@@ -32,7 +32,7 @@ static char advance(Scanner* scanner){
     return scanner->current[-1];
 }
 
-static char peek(Scanner* scanner){
+static char peek_scanner(Scanner* scanner){
     return *scanner->current;
 }
 
@@ -73,7 +73,7 @@ static Token error_token(Scanner* scanner,const char* message){
 
 static void skip_whitespace(Scanner* scanner){
     while(true){
-        char c = peek(scanner);
+        char c = peek_scanner(scanner);
 
         switch (c)
         {
@@ -108,7 +108,7 @@ static void skip_whitespace(Scanner* scanner){
                 advance(scanner);
                 advance(scanner);
             }else if(peek_next(scanner) == '/'){
-                while (peek(scanner) != '\n' && !is_end(scanner)){
+                while (peek_scanner(scanner) != '\n' && !is_end(scanner)){
                     advance(scanner);
                 }
                 
@@ -139,7 +139,7 @@ static Keyword keywords[] =
 };
 
 static Token identifier(Scanner* scanner){
-    while (is_alpha(peek(scanner)) || is_digit(peek(scanner)))
+    while (is_alpha(peek_scanner(scanner)) || is_digit(peek_scanner(scanner)))
     {
         advance(scanner);
     }
@@ -160,13 +160,13 @@ static Token identifier(Scanner* scanner){
 }
 
 static Token number(Scanner* scanner){
-    while (is_digit(peek(scanner)) || peek(scanner) == '_')
+    while (is_digit(peek_scanner(scanner)) || peek_scanner(scanner) == '_')
     {
         advance(scanner);
     }
-    if(peek(scanner) == '.' && (is_digit(peek_next(scanner)))){
+    if(peek_scanner(scanner) == '.' && (is_digit(peek_next(scanner)))){
         advance(scanner);
-        while (is_digit(peek(scanner)) || peek(scanner) == '_')
+        while (is_digit(peek_scanner(scanner)) || peek_scanner(scanner) == '_')
         {
             advance(scanner);
         }
@@ -176,14 +176,14 @@ static Token number(Scanner* scanner){
 }
 
 static Token hex_number(Scanner* scanner){
-    while (peek(scanner) == '_') advance(scanner);
-    if(peek(scanner) == '0') advance(scanner);
+    while (peek_scanner(scanner) == '_') advance(scanner);
+    if(peek_scanner(scanner) == '0') advance(scanner);
 
-    if(peek(scanner) == 'x' || peek(scanner) == 'X'){
+    if(peek_scanner(scanner) == 'x' || peek_scanner(scanner) == 'X'){
         advance(scanner);
-        if(!is_hex(peek(scanner))) return error_token(scanner, "Invalid hex literal");
+        if(!is_hex(peek_scanner(scanner))) return error_token(scanner, "Invalid hex literal");
 
-        while (is_hex(peek(scanner)))
+        while (is_hex(peek_scanner(scanner)))
         {
             advance(scanner);
         }
@@ -192,9 +192,9 @@ static Token hex_number(Scanner* scanner){
 }
 
 static Token string(Scanner* scanner, char string_token){
-    while(peek(scanner) == string_token && !is_end(scanner)){
+    while(peek_scanner(scanner) == string_token && !is_end(scanner)){
         advance(scanner);
-        if(peek(scanner) == '\n') scanner->line++;
+        if(peek_scanner(scanner) == '\n') scanner->line++;
     }
     if(is_end(scanner)) return error_token(scanner, "Unterminated string");
 

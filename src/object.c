@@ -28,14 +28,15 @@ ObjModule *new_module(LnVM* vm, ObjString* name){
     module->name = name;
     module->path = NULL;
 
-    //TODO:VM
+    push(vm, OBJ_VAL(module));
     ObjString* __file__ = copy_string(vm,"__file__", 8);
-    //TODO:pushvm
+    push(vm, OBJ_VAL(__file__));
 
     table_set(vm,&module->values, __file__, OBJ_VAL(name));
     table_set(vm,&vm->modules, name, OBJ_VAL(module));
 
-    //TODO:VM POPX2
+    pop(vm);
+    pop(vm);
     return module;
 }
 
@@ -89,12 +90,13 @@ ObjInstance* new_instance(LnVM* vm, ObjClass* klass){
     instance->klass = klass;
     init_table(&instance->fields);
 
-    //TODO:VMpsuh
+    push(vm, OBJ_VAL(instance));
     ObjString* classString = copy_string(vm,"_class", 6);
-    //TODO:VMpush
+    push(vm, OBJ_VAL(classString));
     table_set(vm,&instance->fields,classString,OBJ_VAL(klass));
 
-    //TODO:Popx2
+    pop(vm);
+    pop(vm);
     return instance;
 }
 
@@ -108,9 +110,9 @@ static ObjString* allocate_string(LnVM* vm, char* chars,int length, uint32_t has
     string->length = length;
     string->chars = chars;
     string->hash = hash;
-    //TODO:VMPUSHGC
+    push(vm, OBJ_VAL(string));
     table_set(vm,&vm->strings,string,NIL_VAL);
-    //TODO:VMPOPGC
+    pop(vm);
     return string;
 }
 static uint32_t hash_string(const char* key, int length){
@@ -171,3 +173,158 @@ ObjUpvalue* new_upvalue(LnVM* vm, Value* slot){
     upvalue->next = NULL;
     return upvalue;
 }
+char* list_to_string(Value value){
+    int size = 50;
+    ObjList* list = AS_LIST(value);
+    char* list_string = malloc(sizeof(char) * size);
+    memcpy(list_string, "[", 1);
+
+    int list_string_length = 1;
+    for (int i = 0; i < list->values.count; i++) {
+        Value  list_value = list->values.value[i];
+        char* element;
+        int element_size;
+        if(IS_STRING(list_value)){
+            ObjString* s = AS_STRING(list_value);
+            element = s->chars;
+            element_size = s->length;
+        }else{
+            element = value_to_string(list_value);
+            element_size = strlen(element);
+        }
+
+        if(element_size > (size - list_string_length - 6)){
+            if(element_size > size){
+                size = size + element_size * 2 + 6;
+            } else{
+                size = size * 2 + 6;
+            }
+            char* newB = realloc(list_string,sizeof(char) *size);
+            if(newB == NULL){
+                printf("Unable to allocate memory\n");
+                exit(71);
+            }
+            list_string = newB;
+        }
+        if(IS_STRING(list_value)){
+            memcpy(list_string+list_string_length, "\"", 1);
+            memcpy(list_string + list_string_length + 1, element,element_size);
+            memcpy(list_string + list_string_length + 1 + element_size,"\"", 1);
+            list_string_length += element_size + 2;
+        } else{
+            memcpy(list_string + list_string_length,element,element_size);
+            list_string_length += element_size;
+            free(element);
+        }
+        if(i != list->values.count - 1){
+            memcpy(list_string + list_string_length, ", ", 2);
+            list_string_length+=2;
+        }
+    }
+    memcpy(list_string + list_string_length, "]", 1);
+    list_string[list_string_length + 1] = '\0';
+    return list_string;
+}
+
+char* map_to_string(Value value){
+    int count = 0;
+    int size = 50;
+    ObjMap* map = AS_MAP(value);
+    char* map_string = malloc(sizeof(char) * size);
+    memcpy(map_string, "{", 1);
+    int map_string_length = 1;
+
+    for (int i = 0; i <= map->capacity_mask; i++) {
+        MapEntry* item = &map->entries[i];
+        if(IS_EMPTY(item->key)) continue;
+
+        count++;
+
+        char* key;
+        int key_size;
+        if(IS_STRING(item->key)){
+            ObjString* s = AS_STRING(item->key);
+            key = s->chars;
+            key_size = s->length;
+        }else{
+            key = value_to_string(item->key);
+            key_size = strlen(key);
+        }
+
+        if(key_size > (size - map_string_length - key_size - 4)){
+            if(key_size > size){
+                size += key_size * 2 + 4;
+            } else{
+                size *= 2 + 4;
+            }
+            char* newB = realloc(map_string, sizeof(char) * size);
+
+            if(newB == NULL){
+                printf("Unable to allocate memory\n");
+                exit(71);
+            }
+            map_string = newB;
+        }
+
+        if(IS_STRING(item->key)){
+            memcpy(map_string+map_string_length, "\"", 1);
+            memcpy(map_string + map_string_length + 1, key,key_size);
+            memcpy(map_string + map_string_length + 1 + key_size,"\": ", 3);
+            map_string_length += key_size + 2;
+        } else{
+            memcpy(map_string + map_string_length,key,key_size);
+            memcpy(map_string + map_string_length + key_size, ": ",2);
+            map_string_length += key_size + 2;
+            free(key);
+        }
+
+        char* element;
+        int element_size;
+
+        if(IS_STRING(item->value)){
+            ObjString* s = AS_STRING(item->value);
+            element = s->chars;
+            element_size = s->length;
+        } else{
+            element = value_to_string(item->value);
+            element_size = strlen(element);
+        }
+
+        if(element_size > (size - map_string_length - element_size - 6)){
+            if(element_size > size){
+                size += element_size * 2 + 6;
+            } else{
+                size = size * 2 + 6;
+            }
+
+            char* newB = realloc(map_string,sizeof (char) * size);
+
+            if(newB == NULL){
+                printf("Unable to allocate memory\n");
+                exit(71);
+            }
+            map_string = newB;
+        }
+
+        if(IS_STRING(item->value)){
+            memcpy(map_string+map_string_length, "\"", 1);
+            memcpy(map_string + map_string_length + 1, element,element_size);
+            memcpy(map_string + map_string_length + 1 + element_size,"\"", 1);
+            map_string_length += element_size + 2;
+        } else{
+            memcpy(map_string + map_string_length,element,element_size);
+            map_string_length += element_size;
+            free(element);
+        }
+        if(count != map->count){
+            memcpy(map_string + map_string_length, ", ", 2);
+            map_string_length +=2;
+        }
+    }
+    memcpy(map_string + map_string_length, "}", 1);
+    map_string[map_string_length + 1] = '\0';
+
+    return map_string;
+}
+
+// TODO: Object to string

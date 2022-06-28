@@ -277,6 +277,13 @@ static int argument_list(Compiler* compiler){
     return arg_count;
 }
 
+static void expression(Compiler* compiler){
+
+}
+static void parse_precedence(Compiler* compiler, Precedence precedence){
+
+}
+
 static void and_(Compiler* compiler, bool can_assign){
     //TODO:VM
     parse_precedence(compiler,PREC_AND);
