@@ -19,6 +19,7 @@
 #include "src/hash_table.h"
 #include "src/vm.h"
 
+
 typedef enum {
     INTERPRET_OK,
     INTERPRET_COMPILER_ERROR,

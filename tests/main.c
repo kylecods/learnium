@@ -25,6 +25,12 @@ void lex_test(){
 
     //numbers
     common_lex_test("1 90 09 9.0 0x67 0X65 3.3333");
+
+    //single quote string
+    common_lex_test("'this is a is single quoted string';");
+
+    //double quote string
+    common_lex_test("\"this is a double quoted string\";");
 }
 
 

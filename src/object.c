@@ -327,4 +327,115 @@ char* map_to_string(Value value){
     return map_string;
 }
 
-// TODO: Object to string
+char* object_to_string(Value value){
+    switch (AS_OBJ(value)->type) {
+        case OBJ_MODULE:{
+            ObjModule* module = AS_MODULE(value);
+            char* module_string = malloc(sizeof(char) * (module->name->length + 11));
+            snprintf(module_string,(module->name->length + 10), "<Module %s>",module->name->chars);
+            return module_string;
+        }
+        case OBJ_CLASS:{
+            ObjClass* klass = AS_CLASS(value);
+            char* class_string = malloc(sizeof(char) * (klass->name->length + 7));
+            memcpy(class_string, "<Class ",5);
+            memcpy(class_string + 5, klass->name->chars,klass->name->length);
+            memcpy(class_string + 5 + klass->name->length, ">", 1);
+            class_string[klass->name->length + 6] = '\0';
+            return class_string;
+        }
+        case OBJ_ENUM:{
+            ObjEnum* enumObj = AS_ENUM(value);
+            char* enum_string = malloc(sizeof(char) * (enumObj->name->length + 8));
+            memcpy(enum_string, "<Enum ",6);
+            memcpy(enum_string + 6, enumObj->name->chars,enumObj->name->length);
+            memcpy(enum_string + 6 + enumObj->name->length, ">", 1);
+            enum_string[enumObj->name->length + 7] = '\0';
+            return enum_string;
+        }
+        case OBJ_BOUND_METHOD:{
+            ObjBoundMethod* method = AS_BOUND_METHOD(value);
+            char* method_string;
+            if(method->method->function->name != NULL){
+                method_string = malloc(sizeof(char) * (method->method->function->name->length + 16));
+                snprintf(method_string,method->method->function->name->length + 16, "<Bound Method %s>",method->method->function->name->chars);
+            } else{
+                method_string = malloc(sizeof(char) * 15);
+                memcpy(method_string, "<Bound Method>", 14);
+                method_string[14] = '\0';
+            }
+
+            return method_string;
+        }
+        case OBJ_CLOSURE:{
+            ObjClosure* closure = AS_CLOSURE(value);
+            char* closure_string;
+
+            if(closure->function->name != NULL){
+                closure_string = malloc(sizeof(char) * (closure->function->name->length + 6));
+                snprintf(closure_string,closure->function->name->length + 6, "<fn %s>",closure->function->name->chars);
+            } else{
+                closure_string= malloc(sizeof(char) * 9);
+                memcpy(closure_string, "<Script>", 8);
+                closure_string[8] = '\0';
+            }
+            return closure_string;
+        }
+        case OBJ_FUNCTION:{
+            ObjFun* function = AS_FUNC(value);
+            char* function_string;
+            if(function->name !=NULL){
+                function_string = malloc(sizeof(char)* (function->name->length + 6));
+                snprintf(function_string, function->name->length + 6, "<fn %s>", function->name->chars);
+            } else{
+                function_string = malloc(sizeof(char) * 5);
+                memcpy(function_string, "<fn>", 4);
+                function_string[4] = '\0';
+            }
+            return function_string;
+        }
+        case OBJ_INSTANCE:{
+            ObjInstance* instance = AS_INSTANCE(value);
+            char* instance_string = malloc(sizeof(char) * (instance->klass->name->length + 12));
+            memcpy(instance_string, "<", 1);
+            memcpy(instance_string + 1, instance->klass->name->chars,instance->klass->name->length);
+            memcpy(instance_string + 1 + instance->klass->name->length, " instance>",10);
+            instance_string[instance->klass->name->length + 11] = '\0';
+            return instance_string;
+        }
+        case OBJ_STRING:{
+            ObjString* stringObj = AS_STRING(value);
+            char* string = malloc(sizeof(char)*stringObj->length +1);
+            memcpy(string,stringObj->chars, stringObj->length);
+            string[stringObj->length] = '\0';
+            return string;
+        }
+        case OBJ_NATIVE:{
+            char* native_string = malloc(sizeof(char) * 12);
+            memcpy(native_string,"<fn native>", 11);
+            native_string[11] = '\0';
+            return native_string;
+        }
+        case OBJ_FILE:{
+            ObjFile* file = AS_FILE(value);
+            char* file_string = malloc(sizeof(char) * (strlen(file->path) + 8));
+            snprintf(file_string, strlen(file->path) + 8, "<File %s>", file->path);
+            return file_string;
+        }
+        case OBJ_MAP:{
+            return map_to_string(value);
+        }
+        case OBJ_LIST:{
+            return list_to_string(value);
+        }
+        case OBJ_UPVALUE:{
+            char* upvalue_string = malloc(sizeof(char) * 8);
+            memcpy(upvalue_string,"upvalue", 7);
+            upvalue_string[7] = '\0';
+            return upvalue_string;
+        }
+    }
+    char *unknown = malloc(sizeof(char) * 9);
+    snprintf(unknown, 8, "%s","unknown");
+    return unknown;
+}
