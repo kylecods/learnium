@@ -6,7 +6,9 @@ static void parser_init(Parser *parser){
     parser->panicMode = false;
 
 }
-
+static Chunk* current_chunk(Compiler* compiler){
+    return &compiler->function->chunk;
+}
 static void error_at(Parser* parser, Token* token, const char* message){
     if(parser->panicMode) return;
 
@@ -63,6 +65,59 @@ static bool match(Compiler* compiler, TokenType type){
     advance(compiler->parser);
     return true;
 }
+static void emit_byte(Compiler* compiler, uint8_t byte){
+    write_chunk(compiler->parser->vm, current_chunk(compiler),byte,compiler->parser->previous.line);
+}
+static void emit_bytes(Compiler* compiler,uint8_t first_byte, uint8_t second_byte){
+    emit_byte(compiler,first_byte);
+    emit_byte(compiler,second_byte);
+}
+
+static void emit_loop(Compiler* compiler, int loop_start){
+    emit_byte(compiler,OP_LOOP);
+    int offset = current_chunk(compiler)->count - loop_start + 2;
+    if(offset > UINT16_MAX) error(compiler->parser, "Loop body too large");
+
+    emit_byte(compiler,(offset >> 8) & 0xff);
+    emit_byte(compiler,offset & 0xff);
+}
+
+static int emit_jump(Compiler* compiler, uint8_t instruction){
+    emit_byte(compiler,instruction);
+    emit_byte(compiler,0xff);
+    emit_byte(compiler,0xff);
+    return current_chunk(compiler)->count - 2;
+}
+static void emit_return(Compiler* compiler){
+    if(compiler->type == TYPE_INITIALIZER){
+        emit_bytes(compiler,OP_GET_LOCAL,0);
+    } else{
+        emit_byte(compiler,OP_NIL);
+    }
+    emit_byte(compiler,OP_RETURN);
+}
+
+static uint8_t make_constant(Compiler* compiler, Value value){
+    int constant = add_constant(compiler->parser->vm, current_chunk(compiler),value);
+    if(constant > UINT8_MAX){
+        error(compiler->parser, "Too many constants in one chunk");
+        return 0;
+    }
+    return (uint8_t)constant;
+}
+static void emit_constant(Compiler* compiler, Value value){
+    emit_bytes(compiler,OP_CONSTANT, make_constant(compiler,value));
+}
+static void patch_jump(Compiler* compiler, int offset){
+    int jump = current_chunk(compiler)->count - offset - 2;
+
+    if (jump > UINT16_MAX){
+        error(compiler->parser, "Too much code to jump over");
+    }
+
+    current_chunk(compiler)->code[offset] = (jump >> 8) & 0xff;
+    current_chunk(compiler)->code[offset + 1] = jump & 0xff;
+}
 
 static void init_compiler(Parser* parser, Compiler* compiler, Compiler* parent, FunctionType type){
     compiler->parser = parser;
@@ -79,16 +134,19 @@ static void init_compiler(Parser* parser, Compiler* compiler, Compiler* parent, 
     compiler->local_count = 0;
     compiler->scope_depth = 0;
 
-    //TODO vm;
+    parser->vm->compiler = compiler;
+
+    compiler->function = new_function(parser->vm, parser->module);
 
     compiler->function = new_function(parser->vm,parser->module);//TO add VM
 
     switch (type)
     {
+        case TYPE_INITIALIZER:
         case TYPE_FUNCTION:
-            compiler->function->name = NULL;//TODO:hashtable
+        case TYPE_METHOD:
+            compiler->function->name = copy_string(parser->vm,parser->previous.start,parser->previous.length);
             break;
-        
         default:
             break;
     }
@@ -97,8 +155,7 @@ static void init_compiler(Parser* parser, Compiler* compiler, Compiler* parent, 
 
     local->depth = compiler->scope_depth;
     local->is_captured = false;
-
-    if(type != TYPE_METHOD) {
+    if(type == TYPE_METHOD || type == TYPE_INITIALIZER) {
         local->name.start = "this";
         local->name.length = 4;
     } else{
@@ -108,7 +165,21 @@ static void init_compiler(Parser* parser, Compiler* compiler, Compiler* parent, 
     }
 }
 
-static ObjFun* end_compiler(Compiler* compiler){//TODO:emit}
+static ObjFun* end_compiler(Compiler* compiler){
+    emit_return(compiler);
+    ObjFun* function = compiler->function;
+    //TODO: DEBUGGER
+    if(compiler->enclosing != NULL){
+        emit_bytes(compiler->enclosing,OP_CLOSURE, make_constant(compiler->enclosing, OBJ_VAL(function)));
+
+        for (int i = 0; i< function->upvalue_count; i++){
+            emit_byte(compiler->enclosing, compiler->upvalues[i].is_local ? 1: 0);
+            emit_byte(compiler->enclosing, compiler->upvalues[i].index);
+        }
+    }
+    compiler->parser->vm->compiler = compiler->enclosing;
+    return function;
+
 }
 static void begin_scope(Compiler* compiler){
     compiler->scope_depth++;
@@ -120,7 +191,11 @@ static void end_scope(Compiler* compiler){
     while (compiler->local_count >0 && compiler->locals[compiler->local_count - 1].depth >
     compiler->scope_depth)
     {
-        //TODO:vm;
+        if(compiler->locals[compiler->local_count - 1].is_captured){
+            emit_byte(compiler,OP_CLOSE_UPVALUE);
+        } else{
+            emit_byte(compiler,OP_POP);
+        }
         compiler->local_count--;
     }
     
@@ -132,7 +207,13 @@ static void statement(Compiler* compiler);
 static void declaration(Compiler* compiler);
 static ParserRule* get_rule(TokenType type);
 
-static uint8_t identifier_constant(Compiler* compiler, Token* name){}
+static uint8_t identifier_constant(Compiler* compiler, Token* name) {
+    ObjString *string = copy_string(compiler->parser->vm, name->start, name->length);
+
+    uint8_t index = make_constant(compiler, OBJ_VAL(string));
+    return index;
+}
+
 
 static bool identifiers_equal(Token* a, Token* b){
     if(a->length != b->length) return false;
@@ -238,7 +319,7 @@ static uint8_t parse_variable(Compiler* compiler, const char* error_message){
 
 static void define_variable(Compiler* compiler, uint8_t global){
     if(compiler->scope_depth == 0){
-        //TODO:VM
+        emit_bytes(compiler,OP_DEFINE_MODULE,global);
     }else{
         compiler->locals[compiler->local_count - 1].depth = compiler->scope_depth;
     }
@@ -285,6 +366,141 @@ static void parse_precedence(Compiler* compiler, Precedence precedence){
 }
 
 static void and_(Compiler* compiler, bool can_assign){
-    //TODO:VM
+    int end_jump = emit_jump(compiler,OP_JUMP_IF_FALSE);
+    emit_byte(compiler,OP_POP);
     parse_precedence(compiler,PREC_AND);
+    patch_jump(compiler,end_jump);
+}
+
+static bool fold_binary(Compiler* compiler,TokenType operator_type){
+#define FOLD(operator) \
+    do{                \
+        Chunk* chunk = current_chunk(compiler); \
+        uint8_t index = chunk->code[chunk->count - 1]; \
+        uint8_t constant = chunk->code[chunk->count - 3]; \
+        if(chunk->code[chunk->count - 2] != OP_CONSTANT) return false; \
+        if(chunk->code[chunk->count - 4] != OP_CONSTANT) return false; \
+        chunk->constants.value[constant] = NUMBER_VAL(AS_NUMBER(chunk->constants.value[constant]) operator AS_NUMBER(chunk->constants.value[index]));\
+        chunk->constants.count--;               \
+        chunk->count -=2;                       \
+        return true;\
+    }while(false)
+
+#define FOLD_FUNC(func) \
+        do{             \
+            Chunk* chunk = current_chunk(compiler); \
+            uint8_t index = chunk->code[chunk->count - 1]; \
+            uint8_t constant = chunk->code[chunk->count - 3]; \
+            if(chunk->code[chunk->count-2] != OP_CONSTANT) return false; \
+            if(chunk->code[chunk->count - 4] != OP_CONSTANT) return false; \
+            chunk->constants.values[constant] = NUMBER_VAL(\
+            func(\
+                AS_NUMBER(chunk->constants.value[constant]),  \
+                AS_NUMBER(chunk->constants.value[index])                        \
+              )           \
+            );          \
+            chunk->constants.count--;               \
+            chunk->count -= 2;                      \
+            return true;\
+        }while(false)
+
+    switch (operator_type) {
+        case TOKEN_PLUS:{
+            FOLD(+);
+            return false;
+        }
+        case TOKEN_MINUS:{
+            FOLD(-);
+            return false;
+        }
+        case TOKEN_STAR:{
+            FOLD(*);
+            return false;
+        }
+        case TOKEN_SLASH:{
+            FOLD(/);
+            return false;
+        }
+        default: return false;
+    }
+#undef FOLD
+#undef FOLD_FUNC
+}
+
+static void binary(Compiler* compiler, Token previous_token, bool can_assign) {
+    TokenType operator_type = compiler->parser->previous.type;
+
+    ParserRule *rule = get_rule(operator_type);
+    parse_precedence(compiler, (Precedence) (rule->precedence + 1));
+
+    TokenType current_token = compiler->parser->previous.type;
+
+    //constant fold optimization
+    if ((previous_token.type == TOKEN_NUM) && (current_token == TOKEN_NUM || current_token == TOKEN_LEFT_PAREN) &&
+        fold_binary(compiler, operator_type)) {
+        return;
+    }
+
+    switch (operator_type) {
+        case TOKEN_BANGEQ:
+            emit_bytes(compiler, OP_EQUAL, OP_NOT);
+            break;
+        case TOKEN_EQUALEQ:
+            emit_byte(compiler, OP_EQUAL);
+            break;
+        case TOKEN_GREATER:
+            emit_byte(compiler, OP_GREATER);
+            break;
+        case TOKEN_GREATEREQ:
+            emit_bytes(compiler, OP_LESS, OP_NOT);
+            break;
+        case TOKEN_LESS:
+            emit_byte(compiler, OP_LESS);
+            break;
+        case TOKEN_LESSEQ:
+            emit_bytes(compiler, OP_GREATER, OP_NOT);
+            break;
+        case TOKEN_PLUS:
+            emit_byte(compiler, OP_ADD);
+            break;
+        case TOKEN_MINUS:
+            emit_byte(compiler, OP_SUB);
+            break;
+        case TOKEN_STAR:
+            emit_byte(compiler, OP_MUL);
+            break;
+        case TOKEN_SLASH:
+            emit_byte(compiler, OP_DIV);
+            break;
+        case TOKEN_AMP:
+            emit_byte(compiler, OP_BITWISE_AND);
+            break;
+        case TOKEN_CARET:
+            emit_byte(compiler, OP_BITWISE_XOR);
+            break;
+        case TOKEN_PIPE:
+            emit_byte(compiler, OP_BITWISE_OR);
+            break;
+        default:
+            return;
+            //TODO: add powers e,g 10^2 = 20
+    }
+}
+
+static void ternary(Compiler *compiler, Token previous_token, bool can_assign){
+    int else_jump = emit_jump(compiler,OP_JUMP_IF_FALSE);
+    emit_byte(compiler,OP_POP);
+    expression(compiler);
+
+    int end_jump = emit_jump(compiler,OP_JUMP);
+    patch_jump(compiler,else_jump);
+    emit_byte(compiler,OP_POP);
+    consume(compiler,TOKEN_FULL_COLON, "Expected colon after ternary");
+    expression(compiler);
+    patch_jump(compiler,end_jump);
+}
+
+static void call(Compiler* compiler, Token previous_token, bool can_assign){
+    int arg_count = argument_list(compiler);
+    emit_bytes(compiler,OP_CALL,arg_count);
 }

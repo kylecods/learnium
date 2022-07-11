@@ -641,7 +641,7 @@ static LnInterpretResult run(LnVM* vm){
             push(vm, NIL_VAL);
             DISPATCH();
         }
-        RUNTIME_ERROR_TYPE("Cannnot set property on type '%s'", 1);
+        RUNTIME_ERROR_TYPE("Cannot set property on type '%s'", 1);
     }
     CASE_CODE(GET_SUPER): {
         ObjString *name = READ_STRING();
