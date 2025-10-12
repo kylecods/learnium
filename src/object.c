@@ -148,10 +148,10 @@ ObjString* copy_string(LnVM* vm,const char* chars, int length){
     return allocate_string(vm,heap_chars,length,hash);
 }
 
-ObjList* new_list(LnVM* vm){
-    ObjList* list = ALLOCATE_OBJ(vm,ObjList,OBJ_LIST);
-    init_valueArray(&list->values);
-    return list;
+ObjArray* new_array(LnVM* vm){
+    ObjArray* array = ALLOCATE_OBJ(vm,ObjArray,OBJ_ARRAY);
+    init_valueArray(&array->values);
+    return array;
 }
 
 ObjMap* new_map(LnVM* vm){
@@ -173,162 +173,78 @@ ObjUpvalue* new_upvalue(LnVM* vm, Value* slot){
     upvalue->next = NULL;
     return upvalue;
 }
-char* list_to_string(Value value){
-    int size = 50;
-    ObjList* list = AS_LIST(value);
-    char* list_string = malloc(sizeof(char) * size);
-    memcpy(list_string, "[", 1);
 
-    int list_string_length = 1;
-    for (int i = 0; i < list->values.count; i++) {
-        Value  list_value = list->values.value[i];
-        char* element;
-        int element_size;
-        if(IS_STRING(list_value)){
-            ObjString* s = AS_STRING(list_value);
-            element = s->chars;
-            element_size = s->length;
-        }else{
-            element = value_to_string(list_value);
-            element_size = strlen(element);
-        }
+static void print_array(ObjArray* array)
+{
+	printf("[");
+    for (int i = 0; i < array->values.count; i++)
+    {
+        print_value(array->values.value[i]);
 
-        if(element_size > (size - list_string_length - 6)){
-            if(element_size > size){
-                size = size + element_size * 2 + 6;
-            } else{
-                size = size * 2 + 6;
-            }
-            char* newB = realloc(list_string,sizeof(char) *size);
-            if(newB == NULL){
-                printf("Unable to allocate memory\n");
-                exit(71);
-            }
-            list_string = newB;
-        }
-        if(IS_STRING(list_value)){
-            memcpy(list_string+list_string_length, "\"", 1);
-            memcpy(list_string + list_string_length + 1, element,element_size);
-            memcpy(list_string + list_string_length + 1 + element_size,"\"", 1);
-            list_string_length += element_size + 2;
-        } else{
-            memcpy(list_string + list_string_length,element,element_size);
-            list_string_length += element_size;
-            free(element);
-        }
-        if(i != list->values.count - 1){
-            memcpy(list_string + list_string_length, ", ", 2);
-            list_string_length+=2;
+        if (i != array->values.count - 1) 
+        {
+            printf(", ");
         }
     }
-    memcpy(list_string + list_string_length, "]", 1);
-    list_string[list_string_length + 1] = '\0';
-    return list_string;
+	printf("]");
+
 }
 
-char* map_to_string(Value value){
-    int count = 0;
-    int size = 50;
-    ObjMap* map = AS_MAP(value);
-    char* map_string = malloc(sizeof(char) * size);
-    memcpy(map_string, "{", 1);
-    int map_string_length = 1;
+static void print_class(ObjClass* klass)
+{
+    printf("<Class %s>", klass->name->chars);
+}
 
-    for (int i = 0; i <= map->capacity_mask; i++) {
-        MapEntry* item = &map->entries[i];
-        if(IS_EMPTY(item->key)) continue;
-
-        count++;
-
-        char* key;
-        int key_size;
-        if(IS_STRING(item->key)){
-            ObjString* s = AS_STRING(item->key);
-            key = s->chars;
-            key_size = s->length;
-        }else{
-            key = value_to_string(item->key);
-            key_size = strlen(key);
-        }
-
-        if(key_size > (size - map_string_length - key_size - 4)){
-            if(key_size > size){
-                size += key_size * 2 + 4;
-            } else{
-                size *= 2 + 4;
-            }
-            char* newB = realloc(map_string, sizeof(char) * size);
-
-            if(newB == NULL){
-                printf("Unable to allocate memory\n");
-                exit(71);
-            }
-            map_string = newB;
-        }
-
-        if(IS_STRING(item->key)){
-            memcpy(map_string+map_string_length, "\"", 1);
-            memcpy(map_string + map_string_length + 1, key,key_size);
-            memcpy(map_string + map_string_length + 1 + key_size,"\": ", 3);
-            map_string_length += key_size + 2;
-        } else{
-            memcpy(map_string + map_string_length,key,key_size);
-            memcpy(map_string + map_string_length + key_size, ": ",2);
-            map_string_length += key_size + 2;
-            free(key);
-        }
-
-        char* element;
-        int element_size;
-
-        if(IS_STRING(item->value)){
-            ObjString* s = AS_STRING(item->value);
-            element = s->chars;
-            element_size = s->length;
-        } else{
-            element = value_to_string(item->value);
-            element_size = strlen(element);
-        }
-
-        if(element_size > (size - map_string_length - element_size - 6)){
-            if(element_size > size){
-                size += element_size * 2 + 6;
-            } else{
-                size = size * 2 + 6;
-            }
-
-            char* newB = realloc(map_string,sizeof (char) * size);
-
-            if(newB == NULL){
-                printf("Unable to allocate memory\n");
-                exit(71);
-            }
-            map_string = newB;
-        }
-
-        if(IS_STRING(item->value)){
-            memcpy(map_string+map_string_length, "\"", 1);
-            memcpy(map_string + map_string_length + 1, element,element_size);
-            memcpy(map_string + map_string_length + 1 + element_size,"\"", 1);
-            map_string_length += element_size + 2;
-        } else{
-            memcpy(map_string + map_string_length,element,element_size);
-            map_string_length += element_size;
-            free(element);
-        }
-        if(count != map->count){
-            memcpy(map_string + map_string_length, ", ", 2);
-            map_string_length +=2;
-        }
+static void print_function(ObjFun* function)
+{
+    if (function->name == NULL) 
+    {
+        printf("<script>");
+	}
+	else if (function->name->length == 0 || function->name->chars[0] == '{')
+    {
+        printf("<fn>");
+    } 
+    else
+    {
+        printf("<fn %s>", function->name->chars);
     }
-    memcpy(map_string + map_string_length, "}", 1);
-    map_string[map_string_length + 1] = '\0';
-
-    return map_string;
 }
 
-char* object_to_string(Value value){
-    switch (AS_OBJ(value)->type) {
+static void print_map(ObjMap* map){
+	printf("{");
+	int start_index = 0;
+	for (int i = 0; i < map->capacity_mask; i++) {
+        MapEntry* entry = &map->entries[i];
+
+        if (IS_EMPTY(entry->key)) {
+			continue;
+        }
+        print_value(entry->key);
+        printf(": ");
+        print_value(entry->value);
+		start_index = i + 1;
+        break;
+    }
+    
+    for (int i = start_index; i <= map->capacity_mask; i++) {
+        MapEntry* entry = &map->entries[i];
+        if (IS_EMPTY(entry->key)) {
+			continue;
+        }
+
+		printf(", ");
+        print_value(entry->key);
+        printf(": ");
+		print_value(entry->value);
+    }
+
+	printf("}");
+}
+
+void print_object(Value value){
+    switch (OBJ_TYPE(value)) 
+    {
         case OBJ_MODULE:{
             ObjModule* module = AS_MODULE(value);
             char* module_string = malloc(sizeof(char) * (module->name->length + 11));
@@ -336,13 +252,8 @@ char* object_to_string(Value value){
             return module_string;
         }
         case OBJ_CLASS:{
-            ObjClass* klass = AS_CLASS(value);
-            char* class_string = malloc(sizeof(char) * (klass->name->length + 7));
-            memcpy(class_string, "<Class ",5);
-            memcpy(class_string + 5, klass->name->chars,klass->name->length);
-            memcpy(class_string + 5 + klass->name->length, ">", 1);
-            class_string[klass->name->length + 6] = '\0';
-            return class_string;
+			print_class(AS_CLASS(value));
+            break;
         }
         case OBJ_ENUM:{
             ObjEnum* enumObj = AS_ENUM(value);
@@ -368,53 +279,29 @@ char* object_to_string(Value value){
             return method_string;
         }
         case OBJ_CLOSURE:{
-            ObjClosure* closure = AS_CLOSURE(value);
-            char* closure_string;
-
-            if(closure->function->name != NULL){
-                closure_string = malloc(sizeof(char) * (closure->function->name->length + 6));
-                snprintf(closure_string,closure->function->name->length + 6, "<fn %s>",closure->function->name->chars);
-            } else{
-                closure_string= malloc(sizeof(char) * 9);
-                memcpy(closure_string, "<Script>", 8);
-                closure_string[8] = '\0';
-            }
-            return closure_string;
+			print_function(AS_CLOSURE(value)->function);
+            break;
         }
         case OBJ_FUNCTION:{
-            ObjFun* function = AS_FUNC(value);
-            char* function_string;
-            if(function->name !=NULL){
-                function_string = malloc(sizeof(char)* (function->name->length + 6));
-                snprintf(function_string, function->name->length + 6, "<fn %s>", function->name->chars);
-            } else{
-                function_string = malloc(sizeof(char) * 5);
-                memcpy(function_string, "<fn>", 4);
-                function_string[4] = '\0';
-            }
-            return function_string;
+			print_function(AS_FUNC(value));
+            break;
         }
-        case OBJ_INSTANCE:{
-            ObjInstance* instance = AS_INSTANCE(value);
-            char* instance_string = malloc(sizeof(char) * (instance->klass->name->length + 12));
-            memcpy(instance_string, "<", 1);
-            memcpy(instance_string + 1, instance->klass->name->chars,instance->klass->name->length);
-            memcpy(instance_string + 1 + instance->klass->name->length, " instance>",10);
-            instance_string[instance->klass->name->length + 11] = '\0';
-            return instance_string;
-        }
+        //case OBJ_INSTANCE:{
+        //    ObjInstance* instance = AS_INSTANCE(value);
+        //    char* instance_string = malloc(sizeof(char) * (instance->klass->name->length + 12));
+        //    memcpy(instance_string, "<", 1);
+        //    memcpy(instance_string + 1, instance->klass->name->chars,instance->klass->name->length);
+        //    memcpy(instance_string + 1 + instance->klass->name->length, " instance>",10);
+        //    instance_string[instance->klass->name->length + 11] = '\0';
+        //    return instance_string;
+        //}
         case OBJ_STRING:{
-            ObjString* stringObj = AS_STRING(value);
-            char* string = malloc(sizeof(char)*stringObj->length +1);
-            memcpy(string,stringObj->chars, stringObj->length);
-            string[stringObj->length] = '\0';
-            return string;
+			printf("%s", AS_CSTRING(value));
+            break;
         }
         case OBJ_NATIVE:{
-            char* native_string = malloc(sizeof(char) * 12);
-            memcpy(native_string,"<fn native>", 11);
-            native_string[11] = '\0';
-            return native_string;
+			printf("<native fn>");
+            break;
         }
         case OBJ_FILE:{
             ObjFile* file = AS_FILE(value);
@@ -423,19 +310,19 @@ char* object_to_string(Value value){
             return file_string;
         }
         case OBJ_MAP:{
-            return map_to_string(value);
+             print_map(AS_MAP(value));
+             break;
         }
-        case OBJ_LIST:{
-            return list_to_string(value);
+        case OBJ_ARRAY:{
+            print_array(AS_ARRAY(value));
+            break;
         }
         case OBJ_UPVALUE:{
-            char* upvalue_string = malloc(sizeof(char) * 8);
-            memcpy(upvalue_string,"upvalue", 7);
-            upvalue_string[7] = '\0';
-            return upvalue_string;
+			printf("upvalue");
+            break;
         }
+         default:
+            printf("unknown");
+			break;
     }
-    char *unknown = malloc(sizeof(char) * 9);
-    snprintf(unknown, 8, "%s","unknown");
-    return unknown;
 }

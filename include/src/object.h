@@ -10,7 +10,7 @@
 
 #define AS_MODULE(value)  ((ObjModule*)AS_OBJ(value))
 #define AS_FUNC(value)  ((ObjFun*)AS_OBJ(value))
-#define AS_LIST(value)  ((ObjList*)AS_OBJ(value))
+#define AS_ARRAY(value)  ((ObjArray*)AS_OBJ(value))
 #define AS_MAP(value)  ((ObjMap*)AS_OBJ(value))
 #define AS_STRING(value)  ((ObjString*)AS_OBJ(value))
 #define AS_CSTRING(value) (((ObjString*)AS_OBJ(value))->chars)
@@ -22,7 +22,9 @@
 #define AS_NATIVE(value) (((ObjNative*)AS_OBJ(value))->function)
 #define AS_FILE(value) ((ObjFile*)AS_OBJ(value))
 
-#define IS_LIST(value)  is_obj_type(value,OBJ_LIST)
+#define OBJ_TYPE(value)         (AS_OBJ(value)->type)
+
+#define IS_ARRAY(value)  is_obj_type(value,OBJ_ARRAY)
 #define IS_BOUND_METHOD(value) is_obj_type(value, OBJ_BOUND_METHOD)
 #define IS_CLASS(value) is_obj_type(value,OBJ_CLASS)
 #define IS_CLOSURE(value)  is_obj_type(value, OBJ_CLOSURE)
@@ -35,7 +37,7 @@
 #define IS_ENUM(value) is_obj_type(value, OBJ_ENUM)
 
 typedef enum{
-    OBJ_LIST,
+    OBJ_ARRAY,
     OBJ_MODULE,
     OBJ_FUNCTION,
     OBJ_INSTANCE,
@@ -120,7 +122,7 @@ typedef struct {
     HashTable values;
 }ObjEnum;
 
-struct sObjList{
+struct sObjArray{
     Obj obj;
     ValueArray values;
 };
@@ -128,7 +130,6 @@ struct sObjList{
 typedef struct {
     Value key;
     Value  value;
-    uint32_t ps1;
 }MapEntry;
 
 struct sObjMap{
@@ -172,7 +173,7 @@ ObjString* take_string(LnVM* vm,char* chars, int length);
 
 ObjString* copy_string(LnVM* vm,const char* chars, int length);
 
-ObjList* new_list(LnVM* vm);
+ObjArray* new_array(LnVM* vm);
 
 ObjMap* new_map(LnVM* vm);
 
@@ -180,11 +181,7 @@ ObjFile* new_file(LnVM* vm);
 
 ObjUpvalue* new_upvalue(LnVM* vm, Value* slot);
 
-char* list_to_string(Value value);
-
-char* map_to_string(Value value);
-
-char* object_to_string(Value value);
+void print_object(Value value);
 
 static inline bool is_obj_type(Value value, ObjType type){
     return IS_OBJ(value) && AS_OBJ(value)->type == type;

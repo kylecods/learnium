@@ -18,7 +18,7 @@ void free_chunk(LnVM* vm, Chunk* chunk){
 void write_chunk(LnVM* vm, Chunk* chunk,uint8_t byte, int line){
     if(chunk->capacity < chunk->count + 1){
         int old_cap = chunk->capacity;
-        chunk->capacity - GROW_CAPACITY(old_cap);
+        chunk->capacity = GROW_CAPACITY(old_cap);
         chunk->code = GROW_ARRAY(vm,chunk->code,uint8_t,old_cap,chunk->capacity);
 
         chunk->lines = GROW_ARRAY(vm,chunk->lines,int,old_cap,chunk->capacity);

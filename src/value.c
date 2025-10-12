@@ -5,8 +5,6 @@
 
 
 
-bool values_equal(Value a, Value b);
-
 void init_valueArray(ValueArray* array){
     array->value = NULL;
     array->count= 0;
@@ -185,10 +183,8 @@ bool map_delete(LnVM* vm, ObjMap* map, Value key){
 
 char* value_to_string(Value value){
     if(IS_BOOL(value)){
-        char *str = AS_BOOL(value) ? "true" : false;
-        char* bool_string = malloc(sizeof(char) * (strlen(str) + 1));
-        snprintf(bool_string, strlen(str) + 1, "%s", str);
-        return bool_string;
+        char *str = AS_BOOL(value) ? "true" : "false";
+        return str;
 
     }else if(IS_NIL(value)){
         char* nil_string = malloc(sizeof(char) * 4);
@@ -256,7 +252,7 @@ char* value_type_to_string(LnVM* vm, Value value,int* length){
             case OBJ_FUNCTION:{
                 CONVERT(func, 4);
             }
-            case OBJ_LIST:{
+            case OBJ_ARRAY:{
                 CONVERT(list, 4);
             }
             case OBJ_STRING:{
@@ -279,9 +275,19 @@ char* value_type_to_string(LnVM* vm, Value value,int* length){
 
 }
 void print_value(Value value){
-    char *output = value_to_string(value);
-    printf("%s", output);
-    free(output);
+    if (IS_BOOL(value)) {
+		printf(AS_BOOL(value) ? "true" : "false");
+    }
+    else if (IS_NIL(value)) {
+		printf("null");
+    }
+    else if (IS_NUMBER(value)) {
+        double number = AS_NUMBER(value);
+		printf("%.15g", number);
+    }
+    else if (IS_OBJ(value)) {
+		print_object(value);
+    }
 }
 void print_value_error(Value value){
     char *output = value_to_string(value);
