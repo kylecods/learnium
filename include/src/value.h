@@ -8,7 +8,7 @@ typedef struct vm LnVM;
 
 typedef struct sObj Obj;
 typedef struct sObjString ObjString;
-typedef struct sObjList ObjList;
+typedef struct sObjArray ObjArray;
 typedef struct sObjMap ObjMap;
 typedef struct sObjFile ObjFile;
 

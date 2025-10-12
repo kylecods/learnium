@@ -18,6 +18,8 @@
 #include "src/object.h"
 #include "src/hash_table.h"
 #include "src/vm.h"
+#include "src/map.h"
+#include "src/hash.h"
 
 
 typedef enum {

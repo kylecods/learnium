@@ -38,7 +38,14 @@ void gray_object(LnVM* vm, Obj* object){
     if(vm->gray_capacity < vm->gray_count + 1){
         vm->gray_capacity = GROW_CAPACITY(vm->gray_capacity);
 
-        vm->gray_stack = realloc(vm->gray_stack, sizeof(Obj *) * vm->gray_capacity);
+        Obj** grayStack = (Obj**)realloc(vm->gray_stack, sizeof(Obj*) * vm->gray_capacity);
+
+		if (grayStack == NULL) {
+            fprintf(stderr, "Not enough memory to allocate");
+            exit(74);
+        }
+
+        vm->gray_stack = grayStack;
     }
     vm->gray_stack[vm->gray_count++] = object;
 }
